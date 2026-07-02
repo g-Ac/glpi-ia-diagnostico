@@ -3,3 +3,4 @@ glpi-config.json
 *.bak
 *.bak-*
 *.zip
+*.log
