@@ -222,3 +222,9 @@ Describe 'New-ReportHtml' {
         $html | Should -Match '1 achado'   # conta 1, nao 3
     }
 }
+
+Describe 'Get-PollerAction' {
+    It 'exit 0 => done' { Get-PollerAction -ExitCode 0 -Attempts 1 -MaxAttempts 5 | Should -Be 'done' }
+    It 'exit !=0 sob o limite => retry' { Get-PollerAction -ExitCode 1 -Attempts 1 -MaxAttempts 5 | Should -Be 'retry' }
+    It 'exit !=0 no limite => giveup' { Get-PollerAction -ExitCode 1 -Attempts 5 -MaxAttempts 5 | Should -Be 'giveup' }
+}

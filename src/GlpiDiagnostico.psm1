@@ -437,7 +437,25 @@ function New-ReportHtml {
     return $sb.ToString()
 }
 
+function Get-PollerAction {
+    <#
+      Decisao pura do poller a partir do exit code do motor e do numero de tentativas.
+      'done'   = motor tratou (exit 0) -> marcar tarefa feita.
+      'giveup' = erro transiente que ja bateu o limite -> marcar feita com falha (anti-veneno).
+      'retry'  = erro transiente sob o limite -> deixar a-fazer pro proximo ciclo.
+    #>
+    param(
+        [Parameter(Mandatory)][int]$ExitCode,
+        [int]$Attempts = 1,
+        [int]$MaxAttempts = 5
+    )
+    if ($ExitCode -eq 0) { return 'done' }
+    if ($Attempts -ge $MaxAttempts) { return 'giveup' }
+    return 'retry'
+}
+
 Export-ModuleMember -Function `
     Get-DiagEmoji, Get-Prop, ConvertTo-Gigabytes, Test-ThresholdBreach, `
     Get-DefaultThresholds, New-Finding, Get-NetworkVerdict, Get-Findings, `
-    Get-OverallLevel, New-GlpiFollowupBody, ConvertTo-HtmlEncoded, New-ReportHtml
+    Get-OverallLevel, New-GlpiFollowupBody, ConvertTo-HtmlEncoded, New-ReportHtml, `
+    Get-PollerAction
