@@ -36,7 +36,7 @@
     Ignora validacao do certificado TLS (usar so fora do dominio; no DC a CA e confiavel).
 
 .EXAMPLE
-    .\Diagnostico-GLPI.ps1 -TicketId 7490 -Hostname COMPUTADOR09
+    .\Diagnostico-GLPI.ps1 -TicketId 7490 -Hostname PC01
 .EXAMPLE
     .\Diagnostico-GLPI.ps1 -TicketId 7490 -Preview
 #>
@@ -45,8 +45,8 @@ param(
     [Parameter(Mandatory)][int]$TicketId,
     [string]$Hostname,
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'glpi-config.json'),
-    [string]$InternalIp = '10.0.1.4',
-    [string]$InternalDnsName = 'glpi.ipeconect.com.br',
+    [string]$InternalIp,
+    [string]$InternalDnsName,
     [string]$ExternalDnsName = 'www.microsoft.com',
     [string]$InternetIp = '1.1.1.1',
     [string]$MailHost = 'outlook.office365.com',
@@ -63,17 +63,22 @@ Import-Module (Join-Path $PSScriptRoot 'src\GlpiDiagnostico.psm1') -Force
 # ------------------------------------------------------------------ Config ---
 function Get-GlpiConfig {
     param([string]$Path)
-    $url = $env:GLPI_PUBLIC_URL; $app = $env:GLPI_APP_TOKEN; $usr = $env:GLPI_USER_TOKEN
-    if ((-not $url -or -not $app -or -not $usr) -and (Test-Path $Path)) {
-        $j = Get-Content $Path -Raw | ConvertFrom-Json
-        if (-not $url) { $url = $j.Url }
-        if (-not $app) { $app = $j.AppToken }
-        if (-not $usr) { $usr = $j.UserToken }
-    }
+    $j = $null
+    if (Test-Path $Path) { $j = Get-Content $Path -Raw | ConvertFrom-Json }
+    $url = $env:GLPI_PUBLIC_URL; if (-not $url) { $url = Get-Prop $j 'Url' $null }
+    $app = $env:GLPI_APP_TOKEN;  if (-not $app) { $app = Get-Prop $j 'AppToken' $null }
+    $usr = $env:GLPI_USER_TOKEN; if (-not $usr) { $usr = Get-Prop $j 'UserToken' $null }
     if (-not $url -or -not $app -or -not $usr) {
         throw "Config incompleta. Defina GLPI_PUBLIC_URL/GLPI_APP_TOKEN/GLPI_USER_TOKEN ou crie $Path (Url/AppToken/UserToken)."
     }
-    return [pscustomobject]@{ Base = "$($url.TrimEnd('/'))/apirest.php"; App = $app; User = $usr; Public = $url.TrimEnd('/') }
+    return [pscustomobject]@{
+        Base            = "$($url.TrimEnd('/'))/apirest.php"
+        App             = $app
+        User            = $usr
+        Public          = $url.TrimEnd('/')
+        InternalIp      = (Get-Prop $j 'InternalIp' $null)       # opcional: alvo de ping interno (ex.: DC)
+        InternalDnsName = (Get-Prop $j 'InternalDnsName' $null)  # opcional: nome interno p/ testar DNS
+    }
 }
 
 # ------------------------------------------------------------- API GLPI ------
@@ -208,7 +213,7 @@ $CollectScript = {
     $net['Gateway'] = safe 'ping-gw' { Ping-Stats $gwAddr }
     $net['Internal'] = safe 'ping-int' { Ping-Stats $InternalIp }
     $net['Internet'] = safe 'ping-net' { Ping-Stats $InternetIp }
-    $net['DnsInternalOk'] = [bool](safe 'dns-int' { @(Resolve-DnsName -Name $InternalDnsName -Type A -QuickTimeout -ErrorAction SilentlyContinue).Count -gt 0 })
+    $net['DnsInternalOk'] = if ($InternalDnsName) { [bool](safe 'dns-int' { @(Resolve-DnsName -Name $InternalDnsName -Type A -QuickTimeout -ErrorAction SilentlyContinue).Count -gt 0 }) } else { $null }
     $net['DnsExternalOk'] = [bool](safe 'dns-ext' { @(Resolve-DnsName -Name $ExternalDnsName -Type A -QuickTimeout -ErrorAction SilentlyContinue).Count -gt 0 })
     $net['Vpn'] = @(safe 'vpn' { Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match 'VPN|WireGuard|OpenVPN|AnyConnect|GlobalProtect|FortiClient' } | ForEach-Object { @{ Name = $_.Name; Desc = $_.InterfaceDescription } } })
 
@@ -316,6 +321,11 @@ $CollectScript = {
 # -Preview COM -Hostname = smoke test puro (WinRM + relatorio), sem tocar na API GLPI (dispensa tokens).
 $needGlpi = (-not $Preview) -or (-not $Hostname)
 if ($needGlpi) { $script:Cfg = Get-GlpiConfig -Path $ConfigPath }
+# Alvos de rede especificos do ambiente vem da config (fora do codigo, gitignored) se nao passados por parametro.
+if ($script:Cfg) {
+    if (-not $InternalIp) { $InternalIp = $script:Cfg.InternalIp }
+    if (-not $InternalDnsName) { $InternalDnsName = $script:Cfg.InternalDnsName }
+}
 
 if ($SkipCertCheck) {
     if (-not ([System.Management.Automation.PSTypeName]'DiagTrustAll').Type) {

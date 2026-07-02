@@ -179,7 +179,7 @@ Describe 'New-ReportHtml' {
 
     BeforeAll {
         $script:data = @{
-            Hostname = 'COMPUTADOR09'; LoggedUser = 'GRUPO\joao'; Manufacturer = 'Dell'; Model = 'OptiPlex'
+            Hostname = 'PC01'; LoggedUser = 'GRUPO\joao'; Manufacturer = 'Dell'; Model = 'OptiPlex'
             Serial = 'ABC123'; UptimeDays = 12; RebootPending = $true; RamTotalGB = 8; RamFreeGB = 0.5; RamUsedPct = 94
             CpuName = 'i5'; CpuLoadPct = 20
             Disks = @(@{ Drive = 'C:'; SizeGB = 238; FreeGB = 4; FreePct = 2 })
@@ -188,11 +188,11 @@ Describe 'New-ReportHtml' {
         }
         $script:net = Get-NetworkVerdict -Net @{ HasValidIp = $true; Gateway = @{ LossPct = 0; AvgMs = 2 }; Internet = @{ LossPct = 0; AvgMs = 18 }; DnsExternalOk = $true; WifiSignalPct = 78 }
         $script:findings = Get-Findings -Data $script:data
-        $script:html = New-ReportHtml -Data $script:data -Findings $script:findings -Network $script:net -Meta @{ Hostname = 'COMPUTADOR09'; TimeText = '01/07 14:32' }
+        $script:html = New-ReportHtml -Data $script:data -Findings $script:findings -Network $script:net -Meta @{ Hostname = 'PC01'; TimeText = '01/07 14:32' }
     }
 
     It 'contem o cabecalho com hostname e ipe.ia' {
-        $script:html | Should -Match 'COMPUTADOR09'
+        $script:html | Should -Match 'PC01'
         $script:html | Should -Match 'ipe\.ia'
     }
     It 'contem a secao RESUMO e ACHADOS' {
