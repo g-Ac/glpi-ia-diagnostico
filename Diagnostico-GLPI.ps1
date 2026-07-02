@@ -52,6 +52,7 @@ param(
     [string]$MailHost = 'outlook.office365.com',
     [int]$MailPort = 443,
     [switch]$Preview,
+    [switch]$Auto,          # modo poller: em "sem host/offline" posta nota e sai 0 (nao lanca)
     [switch]$SkipCertCheck
 )
 
@@ -347,7 +348,16 @@ try {
         $target = Resolve-HostnameFromTicket -Id $TicketId
     }
     if (-not $target) {
-        throw "Nao foi possivel determinar a maquina do chamado $TicketId (inventario vazio ou sem vinculo). Rode com -Hostname NOME."
+        $msg = "Nao foi possivel determinar a maquina do chamado $TicketId (inventario vazio ou sem vinculo)."
+        if ($Auto) {
+            # modo poller: posta a nota e sai limpo (return -> finally/Disconnect roda -> exit 0)
+            $eW = Get-DiagEmoji 'wrench'
+            $html = "<b>$eW Diagnostico automatico &middot; $(Get-Date -Format 'dd/MM HH:mm') &middot; ipe.ia</b><br>$msg<br>"
+            Add-TicketDiagnostico -Id $TicketId -Html $html | Out-Null
+            Write-Host $msg
+            return
+        }
+        throw "$msg Rode com -Hostname NOME."
     }
     Write-Host "Alvo: $target (chamado #$TicketId)"
 
