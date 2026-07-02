@@ -1,0 +1,5 @@
+# Segredos e artefatos — NUNCA versionar
+glpi-config.json
+*.bak
+*.bak-*
+*.zip
