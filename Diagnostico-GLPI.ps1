@@ -350,11 +350,9 @@ try {
     if (-not $target) {
         $msg = "Nao foi possivel determinar a maquina do chamado $TicketId (inventario vazio ou sem vinculo)."
         if ($Auto) {
-            # modo poller: posta a nota e sai limpo (return -> finally/Disconnect roda -> exit 0)
-            $eW = Get-DiagEmoji 'wrench'
-            $html = "<b>$eW Diagnostico automatico &middot; $(Get-Date -Format 'dd/MM HH:mm') &middot; ipe.ia</b><br>$msg<br>"
-            Add-TicketDiagnostico -Id $TicketId -Html $html | Out-Null
-            Write-Host $msg
+            # modo poller / ramp do inventario: sem maquina resolvida, marca feita EM SILENCIO
+            # (nao posta nota, pra nao poluir chamados reais). return -> finally/Disconnect -> exit 0.
+            Write-Host "$msg (modo -Auto: sem postar)"
             return
         }
         throw "$msg Rode com -Hostname NOME."
